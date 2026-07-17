@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Compare two prompt versions against the same input using the Gemini API — see results side by side." />
+  <title>Prompt A/B Diff Tester</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <header class="header">
+      <h1>Prompt A/B Diff Tester</h1>
+      <p>Compare two prompts against the same input — see both outputs side by side.</p>
+    </header>
+
+    <!-- Form Card -->
+    <section class="card form-section">
+      <form id="compare-form" autocomplete="off">
+
+        <div class="form-grid">
+          <!-- Prompt A -->
+          <div class="form-group">
+            <label for="prompt-a">Prompt A</label>
+            <textarea
+              id="prompt-a"
+              name="prompt_a"
+              placeholder="Enter your first prompt version…"
+              required
+            ></textarea>
+          </div>
+
+          <!-- Prompt B -->
+          <div class="form-group">
+            <label for="prompt-b">Prompt B</label>
+            <textarea
+              id="prompt-b"
+              name="prompt_b"
+              placeholder="Enter your second prompt version…"
+              required
+            ></textarea>
+          </div>
+
+          <!-- Test Input -->
+          <div class="form-group full-width">
+            <label for="test-input">Test Input</label>
+            <textarea
+              id="test-input"
+              name="test_input"
+              placeholder="Enter the user message / test input…"
+              required
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Options -->
+        <div class="options-row">
+          <div class="toggle-group">
+            <input type="checkbox" id="use-system-instruction" checked />
+            <label for="use-system-instruction">Send prompts as system instruction</label>
+          </div>
+        </div>
+
+        <!-- Submit -->
+        <button type="submit" class="btn-compare" id="btn-compare">
+          <span class="btn-text">Compare</span>
+          <span class="spinner"></span>
+        </button>
+
+      </form>
+    </section>
+
+    <!-- Error Banner -->
+    <div class="error-banner" id="error-banner" role="alert"></div>
+
+    <!-- Results -->
+    <section class="results-section" id="results-section">
+      <h2 class="results-header">Results</h2>
+      <div class="results-grid">
+
+        <!-- Result A -->
+        <div class="result-card">
+          <div class="result-card-title">Prompt A — Output</div>
+          <div class="result-output" id="output-a"></div>
+          <div class="result-meta" id="meta-a"></div>
+        </div>
+
+        <!-- Result B -->
+        <div class="result-card">
+          <div class="result-card-title">Prompt B — Output</div>
+          <div class="result-output" id="output-b"></div>
+          <div class="result-meta" id="meta-b"></div>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
