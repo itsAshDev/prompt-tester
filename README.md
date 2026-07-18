@@ -14,7 +14,7 @@ Compare two prompt versions against the same input using the Gemini API — see 
 cd backend
 
 # 2. (Optional) Create a virtual environment
-python -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 
 # 3. Install dependencies
 pip install -r requirements.txt
@@ -24,7 +24,7 @@ cp .env.example .env
 # Edit .env and replace 'your-key-here' with your real Gemini API key
 
 # 5. Start the server
-python main.py
+python3 main.py
 ```
 
 Open **http://localhost:8000** in your browser.

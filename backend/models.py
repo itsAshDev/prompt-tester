@@ -24,6 +24,9 @@ class ResultItem(BaseModel):
     input_tokens: int
     output_tokens: int
     latency_ms: int
+    estimated_cost: float = Field(
+        ..., description="Estimated cost in USD based on token counts and model pricing"
+    )
 
 
 class CompareResponse(BaseModel):

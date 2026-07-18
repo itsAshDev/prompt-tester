@@ -43,6 +43,7 @@
       { label: 'Input tokens', value: result.input_tokens },
       { label: 'Output tokens', value: result.output_tokens },
       { label: 'Latency', value: result.latency_ms + ' ms' },
+      { label: 'Cost', value: '$' + result.estimated_cost.toFixed(4) },
     ];
     badges.forEach(({ label, value }) => {
       const badge = document.createElement('span');

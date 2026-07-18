@@ -7,6 +7,7 @@ from google import genai
 from google.genai import types
 
 from models import ResultItem
+from pricing import estimate_cost
 
 
 def _create_client(api_key: str) -> genai.Client:
@@ -45,11 +46,14 @@ def _generate_sync(
     input_tokens = usage.prompt_token_count or 0 if usage else 0
     output_tokens = usage.candidates_token_count or 0 if usage else 0
 
+    cost = estimate_cost(model, input_tokens, output_tokens)
+
     return ResultItem(
         output=response.text or "",
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         latency_ms=elapsed_ms,
+        estimated_cost=cost,
     )
 
 
