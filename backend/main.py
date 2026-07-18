@@ -11,8 +11,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from gemini_client import _create_client, generate
-from models import CompareRequest, CompareResponse, ErrorResponse, ResultItem, VarianceSummary
+from gemini_client import _create_client, generate, generate_judge
+from models import CompareRequest, CompareResponse, ErrorResponse, ResultItem, VarianceSummary, JudgeVerdict
 
 # ---------------------------------------------------------------------------
 # Config
@@ -157,6 +157,23 @@ async def compare(req: CompareRequest):
         response.runs_b = results_b
         response.variance_a = _compute_variance(results_a)
         response.variance_b = _compute_variance(results_b)
+
+    if req.enable_judge:
+        try:
+            verdict = await generate_judge(
+                gemini_client,
+                req.test_input,
+                results_a[0].output,
+                results_b[0].output,
+                req.model,
+            )
+            response.judge_verdict = verdict
+        except Exception as judge_exc:
+            print(f"⚠️  LLM Judge call failed: {judge_exc}")
+            response.judge_verdict = JudgeVerdict(
+                choice="Tie",
+                reasoning=f"LLM Judge call failed: {judge_exc}"
+            )
 
     return response
 

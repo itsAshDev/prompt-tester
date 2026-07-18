@@ -19,12 +19,18 @@
   const varianceB = document.getElementById('variance-b');
   const sysInstructionToggle = document.getElementById('use-system-instruction');
   const runsInput = document.getElementById('runs-count');
+  const enableJudgeToggle = document.getElementById('enable-judge');
 
   // New DOM refs for Diff and Run selectors
   const runSelectors = document.getElementById('run-selectors');
   const selectRunA = document.getElementById('select-run-a');
   const selectRunB = document.getElementById('select-run-b');
   const toggleDiff = document.getElementById('toggle-diff');
+
+  // LLM Judge DOM refs
+  const judgeCard = document.getElementById('judge-card');
+  const judgeBadge = document.getElementById('judge-badge');
+  const judgeReasoning = document.getElementById('judge-reasoning');
 
   // --- App State ---
   let lastCompareData = null;
@@ -225,6 +231,26 @@
     // Render variance if multi-run (always visible if runs > 1, independent of diff toggle)
     renderVariance(varianceA, lastCompareData.variance_a || null);
     renderVariance(varianceB, lastCompareData.variance_b || null);
+
+    // Render LLM Judge Verdict if present
+    if (lastCompareData.judge_verdict) {
+      const verdict = lastCompareData.judge_verdict;
+      judgeBadge.textContent = 'Winner: ' + verdict.choice;
+      judgeBadge.className = 'judge-badge'; // reset classes
+      if (verdict.choice === 'A') {
+        judgeBadge.classList.add('choice-a');
+      } else if (verdict.choice === 'B') {
+        judgeBadge.classList.add('choice-b');
+      } else {
+        judgeBadge.classList.add('choice-tie');
+        judgeBadge.textContent = verdict.choice; // e.g. "Tie" or custom fail message
+      }
+
+      judgeReasoning.textContent = verdict.reasoning;
+      judgeCard.style.display = 'block';
+    } else {
+      judgeCard.style.display = 'none';
+    }
   }
 
   // --- Event Listeners ---
@@ -257,6 +283,7 @@
       test_input: testInput,
       use_system_instruction: sysInstructionToggle.checked,
       runs: Math.max(1, Math.min(5, runs)),
+      enable_judge: enableJudgeToggle.checked,
     };
 
     try {

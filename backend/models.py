@@ -23,6 +23,10 @@ class CompareRequest(BaseModel):
         le=5,
         description="Number of runs per prompt (1–5) for consistency testing",
     )
+    enable_judge: bool = Field(
+        default=False,
+        description="If True, execute an optional third Gemini call to act as an LLM judge scoring both outputs",
+    )
 
 
 class ResultItem(BaseModel):
@@ -48,6 +52,13 @@ class VarianceSummary(BaseModel):
     total_cost: float = Field(..., description="Sum of estimated_cost across all runs")
 
 
+class JudgeVerdict(BaseModel):
+    """Structured verdict from the LLM judge."""
+
+    choice: str = Field(..., description="Which output is better: 'A', 'B', or 'Tie'")
+    reasoning: str = Field(..., description="Explanation of why this choice was made")
+
+
 class CompareResponse(BaseModel):
     """Successful response for POST /api/compare."""
 
@@ -58,6 +69,7 @@ class CompareResponse(BaseModel):
     runs_b: Optional[list[ResultItem]] = None
     variance_a: Optional[VarianceSummary] = None
     variance_b: Optional[VarianceSummary] = None
+    judge_verdict: Optional[JudgeVerdict] = None
 
 
 class ErrorResponse(BaseModel):

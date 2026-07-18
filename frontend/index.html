@@ -65,6 +65,10 @@
             <label for="runs-count">Runs</label>
             <input type="number" id="runs-count" min="1" max="5" value="1" />
           </div>
+          <div class="toggle-group">
+            <input type="checkbox" id="enable-judge" />
+            <label for="enable-judge">Enable LLM Judge</label>
+          </div>
         </div>
 
         <!-- Submit -->
@@ -98,8 +102,17 @@
             <input type="checkbox" id="toggle-diff" />
             <label for="toggle-diff">Highlight Differences</label>
           </div>
-        </div>
       </div>
+      
+      <!-- LLM Judge Verdict Card -->
+      <div class="judge-card" id="judge-card" style="display: none;">
+        <div class="judge-header">
+          <span class="judge-title">LLM Judge Verdict</span>
+          <span class="judge-badge" id="judge-badge"></span>
+        </div>
+        <div class="judge-reasoning" id="judge-reasoning"></div>
+      </div>
+
       <div class="results-grid">
 
         <!-- Result A -->
