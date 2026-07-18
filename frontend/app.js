@@ -20,7 +20,59 @@
   const sysInstructionToggle = document.getElementById('use-system-instruction');
   const runsInput = document.getElementById('runs-count');
 
+  // New DOM refs for Diff and Run selectors
+  const runSelectors = document.getElementById('run-selectors');
+  const selectRunA = document.getElementById('select-run-a');
+  const selectRunB = document.getElementById('select-run-b');
+  const toggleDiff = document.getElementById('toggle-diff');
+
+  // --- App State ---
+  let lastCompareData = null;
+
   // --- Helpers ---
+
+  /** Compute word-level differences between textA and textB.
+   * Returns an array of diff objects: { type: 'equal'|'added'|'removed', text: string }
+   */
+  function computeDiff(textA, textB) {
+    const wordsA = textA.split(/(\s+)/);
+    const wordsB = textB.split(/(\s+)/);
+    
+    const N = wordsA.length;
+    const M = wordsB.length;
+    
+    const dp = Array.from({ length: N + 1 }, () => new Int32Array(M + 1));
+    
+    for (let i = 1; i <= N; i++) {
+      for (let j = 1; j <= M; j++) {
+        if (wordsA[i - 1] === wordsB[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
+    }
+    
+    let i = N;
+    let j = M;
+    const diff = [];
+    
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && wordsA[i - 1] === wordsB[j - 1]) {
+        diff.push({ type: 'equal', text: wordsA[i - 1] });
+        i--;
+        j--;
+      } else if (j > 0 && (i === 0 || dp[i - 1][j] < dp[i][j - 1])) {
+        diff.push({ type: 'added', text: wordsB[j - 1] });
+        j--;
+      } else if (i > 0 && (j === 0 || dp[i - 1][j] >= dp[i][j - 1])) {
+        diff.push({ type: 'removed', text: wordsA[i - 1] });
+        i--;
+      }
+    }
+    
+    return diff.reverse();
+  }
 
   /** Show or hide the error banner. */
   function showError(message) {
@@ -85,14 +137,102 @@
     return div.innerHTML;
   }
 
-  /** Render a single result card. */
-  function renderResult(outputEl, metaEl, result) {
-    outputEl.textContent = result.output;
-    renderMeta(metaEl, result);
+  /** Populate the run selection dropdowns if runs > 1. */
+  function populateRunDropdowns(runsCount) {
+    selectRunA.innerHTML = '';
+    selectRunB.innerHTML = '';
+
+    if (runsCount > 1) {
+      for (let i = 0; i < runsCount; i++) {
+        const optA = document.createElement('option');
+        optA.value = i;
+        optA.textContent = 'Run ' + (i + 1);
+        selectRunA.appendChild(optA);
+
+        const optB = document.createElement('option');
+        optB.value = i;
+        optB.textContent = 'Run ' + (i + 1);
+        selectRunB.appendChild(optB);
+      }
+      runSelectors.style.display = 'flex';
+    } else {
+      runSelectors.style.display = 'none';
+    }
   }
 
-  // --- Form submit ---
+  /** Update the UI display based on the selected runs and diff toggle state. */
+  function updateResultsDisplay() {
+    if (!lastCompareData) return;
 
+    const showDiff = toggleDiff.checked;
+    const runsCount = lastCompareData.runs_a ? lastCompareData.runs_a.length : 1;
+
+    let resultA = lastCompareData.result_a;
+    let resultB = lastCompareData.result_b;
+
+    let idxA = 0;
+    let idxB = 0;
+    if (runsCount > 1) {
+      idxA = parseInt(selectRunA.value, 10) || 0;
+      idxB = parseInt(selectRunB.value, 10) || 0;
+      resultA = lastCompareData.runs_a[idxA];
+      resultB = lastCompareData.runs_b[idxB];
+    }
+
+    console.log("[DiffTester] updateResultsDisplay called:", {
+      showDiff,
+      runsCount,
+      idxA,
+      idxB,
+      lengthA: resultA.output.length,
+      lengthB: resultB.output.length
+    });
+
+    if (showDiff) {
+      const diffs = computeDiff(resultA.output, resultB.output);
+      console.log("[DiffTester] Computed diff chunks count:", diffs.length);
+
+      // Render Prompt A output (only keep equal and removed tokens)
+      let htmlA = '';
+      diffs.forEach(part => {
+        if (part.type === 'equal') {
+          htmlA += escapeHtml(part.text);
+        } else if (part.type === 'removed') {
+          htmlA += '<span class="diff-removed">' + escapeHtml(part.text) + '</span>';
+        }
+      });
+      outputA.innerHTML = htmlA;
+
+      // Render Prompt B output (only keep equal and added tokens)
+      let htmlB = '';
+      diffs.forEach(part => {
+        if (part.type === 'equal') {
+          htmlB += escapeHtml(part.text);
+        } else if (part.type === 'added') {
+          htmlB += '<span class="diff-added">' + escapeHtml(part.text) + '</span>';
+        }
+      });
+      outputB.innerHTML = htmlB;
+    } else {
+      outputA.textContent = resultA.output;
+      outputB.textContent = resultB.output;
+    }
+
+    // Render metadata badges for the selected run pair
+    renderMeta(metaA, resultA);
+    renderMeta(metaB, resultB);
+
+    // Render variance if multi-run (always visible if runs > 1, independent of diff toggle)
+    renderVariance(varianceA, lastCompareData.variance_a || null);
+    renderVariance(varianceB, lastCompareData.variance_b || null);
+  }
+
+  // --- Event Listeners ---
+  toggleDiff.addEventListener('change', updateResultsDisplay);
+  selectRunA.addEventListener('change', updateResultsDisplay);
+  selectRunB.addEventListener('change', updateResultsDisplay);
+
+  // --- Form submit ---
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
     hideError();
@@ -133,14 +273,13 @@
         return;
       }
 
-      // Render results (first run or only run)
-      renderResult(outputA, metaA, data.result_a);
-      renderResult(outputB, metaB, data.result_b);
+      // Store response data and populate UI controls
+      lastCompareData = data;
+      const runsCount = data.runs_a ? data.runs_a.length : 1;
+      populateRunDropdowns(runsCount);
 
-      // Render variance if multi-run
-      renderVariance(varianceA, data.variance_a || null);
-      renderVariance(varianceB, data.variance_b || null);
-
+      // Trigger initial results display
+      updateResultsDisplay();
       resultsSection.classList.add('visible');
 
     } catch (err) {

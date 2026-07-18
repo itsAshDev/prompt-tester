@@ -81,7 +81,25 @@
 
     <!-- Results -->
     <section class="results-section" id="results-section">
-      <h2 class="results-header">Results</h2>
+      <div class="results-header-row">
+        <h2 class="results-header">Results</h2>
+        <div class="results-toolbar" id="results-toolbar">
+          <div class="run-selectors" id="run-selectors" style="display: none;">
+            <div class="select-group">
+              <label for="select-run-a">Run A</label>
+              <select id="select-run-a"></select>
+            </div>
+            <div class="select-group">
+              <label for="select-run-b">Run B</label>
+              <select id="select-run-b"></select>
+            </div>
+          </div>
+          <div class="toggle-group">
+            <input type="checkbox" id="toggle-diff" />
+            <label for="toggle-diff">Highlight Differences</label>
+          </div>
+        </div>
+      </div>
       <div class="results-grid">
 
         <!-- Result A -->
