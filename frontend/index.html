@@ -61,6 +61,10 @@
             <input type="checkbox" id="use-system-instruction" checked />
             <label for="use-system-instruction">Send prompts as system instruction</label>
           </div>
+          <div class="runs-group">
+            <label for="runs-count">Runs</label>
+            <input type="number" id="runs-count" min="1" max="5" value="1" />
+          </div>
         </div>
 
         <!-- Submit -->
@@ -85,6 +89,7 @@
           <div class="result-card-title">Prompt A — Output</div>
           <div class="result-output" id="output-a"></div>
           <div class="result-meta" id="meta-a"></div>
+          <div class="variance-summary" id="variance-a"></div>
         </div>
 
         <!-- Result B -->
@@ -92,6 +97,7 @@
           <div class="result-card-title">Prompt B — Output</div>
           <div class="result-output" id="output-b"></div>
           <div class="result-meta" id="meta-b"></div>
+          <div class="variance-summary" id="variance-b"></div>
         </div>
 
       </div>

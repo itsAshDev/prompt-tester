@@ -19,6 +19,14 @@ GEMINI_PRICING: dict[str, dict[str, float]] = {
         "input_per_1m": 0.30,
         "output_per_1m": 2.50,
     },
+    "gemini-3.1-flash-lite": {
+        "input_per_1m": 0.25,
+        "output_per_1m": 1.50,
+    },
+    "gemini-2.0-flash-lite": {
+        "input_per_1m": 0.075,
+        "output_per_1m": 0.30,
+    },
 }
 
 

@@ -235,6 +235,62 @@ textarea::placeholder {
   background: #fff;
 }
 
+/* --- Runs Input --- */
+.runs-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.runs-group label {
+  text-transform: none;
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.runs-group input[type="number"] {
+  width: 52px;
+  padding: 0.3rem 0.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.85rem;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s ease;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.runs-group input[type="number"]::-webkit-inner-spin-button,
+.runs-group input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+.runs-group input[type="number"]:focus {
+  border-color: var(--accent-start);
+}
+
+/* --- Variance Summary --- */
+.variance-summary {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.variance-summary:empty {
+  display: none;
+}
+
+.variance-badge {
+  border-color: var(--border-accent);
+}
+
 /* --- Button --- */
 .btn-compare {
   display: inline-flex;

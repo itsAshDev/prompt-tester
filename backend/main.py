@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from gemini_client import _create_client, generate
-from models import CompareRequest, CompareResponse, ErrorResponse
+from models import CompareRequest, CompareResponse, ErrorResponse, ResultItem, VarianceSummary
 
 # ---------------------------------------------------------------------------
 # Config
@@ -53,6 +53,25 @@ app = FastAPI(title="Prompt A/B Diff Tester", lifespan=lifespan)
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _compute_variance(results: list[ResultItem]) -> VarianceSummary:
+    """Compute variance summary across a list of ResultItem runs."""
+    lengths = [len(r.output) for r in results]
+    outputs = [r.output for r in results]
+    return VarianceSummary(
+        run_count=len(results),
+        output_length_min=min(lengths),
+        output_length_max=max(lengths),
+        output_length_range=max(lengths) - min(lengths),
+        outputs_identical=len(set(outputs)) == 1,
+        total_cost=sum(r.estimated_cost for r in results),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
@@ -78,30 +97,42 @@ async def compare(req: CompareRequest):
         )
 
     try:
-        result_a, result_b = await asyncio.wait_for(
-            asyncio.gather(
+        # Fan out N runs per prompt concurrently
+        all_tasks = []
+        for _i in range(req.runs):
+            all_tasks.append(
                 generate(
                     gemini_client,
                     req.prompt_a,
                     req.test_input,
                     req.model,
                     req.use_system_instruction,
-                ),
+                )
+            )
+        for _i in range(req.runs):
+            all_tasks.append(
                 generate(
                     gemini_client,
                     req.prompt_b,
                     req.test_input,
                     req.model,
                     req.use_system_instruction,
-                ),
-            ),
-            timeout=GEMINI_TIMEOUT_S,
+                )
+            )
+
+        all_results = await asyncio.wait_for(
+            asyncio.gather(*all_tasks),
+            timeout=GEMINI_TIMEOUT_S * req.runs,
         )
+
+        results_a = list(all_results[: req.runs])
+        results_b = list(all_results[req.runs :])
+
     except asyncio.TimeoutError:
         return JSONResponse(
             status_code=504,
             content={
-                "error": f"Gemini API call timed out after {GEMINI_TIMEOUT_S}s. Try again or use a faster model."
+                "error": f"Gemini API call timed out after {GEMINI_TIMEOUT_S * req.runs}s. Try again or use a faster model."
             },
         )
     except Exception as exc:
@@ -115,7 +146,19 @@ async def compare(req: CompareRequest):
             status = 500
         return JSONResponse(status_code=status, content={"error": msg})
 
-    return CompareResponse(result_a=result_a, result_b=result_b)
+    # Build response — backward-compatible when runs=1
+    response = CompareResponse(
+        result_a=results_a[0],
+        result_b=results_b[0],
+    )
+
+    if req.runs > 1:
+        response.runs_a = results_a
+        response.runs_b = results_b
+        response.variance_a = _compute_variance(results_a)
+        response.variance_b = _compute_variance(results_b)
+
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -126,6 +169,14 @@ async def compare(req: CompareRequest):
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
     """Return a simpler error message for validation errors."""
+    errors = exc.errors()
+    for err in errors:
+        loc = err.get("loc", [])
+        if "runs" in loc:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Runs must be an integer between 1 and 5."},
+            )
     return JSONResponse(
         status_code=400,
         content={"error": "All fields (prompt_a, prompt_b, test_input) are required and must be non-empty."},

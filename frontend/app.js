@@ -15,7 +15,10 @@
   const outputB = document.getElementById('output-b');
   const metaA = document.getElementById('meta-a');
   const metaB = document.getElementById('meta-b');
+  const varianceA = document.getElementById('variance-a');
+  const varianceB = document.getElementById('variance-b');
   const sysInstructionToggle = document.getElementById('use-system-instruction');
+  const runsInput = document.getElementById('runs-count');
 
   // --- Helpers ---
 
@@ -54,6 +57,27 @@
     });
   }
 
+  /** Render variance summary badges. */
+  function renderVariance(container, variance) {
+    container.innerHTML = '';
+    if (!variance) return;
+
+    const badges = [
+      { label: 'Runs', value: variance.run_count },
+      { label: 'Length range', value: variance.output_length_min + '–' + variance.output_length_max + ' chars' },
+      { label: 'Spread', value: variance.output_length_range + ' chars' },
+      { label: 'Identical?', value: variance.outputs_identical ? 'Yes' : 'No' },
+      { label: 'Total cost', value: '$' + variance.total_cost.toFixed(4) },
+    ];
+    badges.forEach(({ label, value }) => {
+      const badge = document.createElement('span');
+      badge.className = 'meta-badge variance-badge';
+      badge.innerHTML =
+        label + '&nbsp;<span class="meta-value">' + escapeHtml(String(value)) + '</span>';
+      container.appendChild(badge);
+    });
+  }
+
   /** Minimal HTML escape for text content. */
   function escapeHtml(str) {
     const div = document.createElement('div');
@@ -76,6 +100,7 @@
     const promptA = document.getElementById('prompt-a').value.trim();
     const promptB = document.getElementById('prompt-b').value.trim();
     const testInput = document.getElementById('test-input').value.trim();
+    const runs = parseInt(runsInput.value, 10) || 1;
 
     // Client-side validation
     if (!promptA || !promptB || !testInput) {
@@ -91,6 +116,7 @@
       prompt_b: promptB,
       test_input: testInput,
       use_system_instruction: sysInstructionToggle.checked,
+      runs: Math.max(1, Math.min(5, runs)),
     };
 
     try {
@@ -107,9 +133,14 @@
         return;
       }
 
-      // Render results
+      // Render results (first run or only run)
       renderResult(outputA, metaA, data.result_a);
       renderResult(outputB, metaB, data.result_b);
+
+      // Render variance if multi-run
+      renderVariance(varianceA, data.variance_a || null);
+      renderVariance(varianceB, data.variance_b || null);
+
       resultsSection.classList.add('visible');
 
     } catch (err) {
