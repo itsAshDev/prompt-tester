@@ -1,6 +1,6 @@
 /**
  * Prompt A/B Diff Tester — Frontend logic
- * Handles form submission, API calls, result rendering, and error states.
+ * Handles form submission, API calls, result rendering, error states, and comparison history.
  */
 
 (function () {
@@ -32,8 +32,22 @@
   const judgeBadge = document.getElementById('judge-badge');
   const judgeReasoning = document.getElementById('judge-reasoning');
 
+  // Comparison History DOM refs
+  const btnToggleHistory = document.getElementById('btn-toggle-history');
+  const btnCloseHistory = document.getElementById('btn-close-history');
+  const btnNewCompare = document.getElementById('btn-new-compare');
+  const historySidebar = document.getElementById('history-sidebar');
+  const sidebarOverlay = document.getElementById('sidebar-overlay');
+  const historyList = document.getElementById('history-list');
+  const historyPagination = document.getElementById('history-pagination');
+  const btnHistoryPrev = document.getElementById('btn-history-prev');
+  const btnHistoryNext = document.getElementById('btn-history-next');
+  const historyPageIndicator = document.getElementById('history-page-indicator');
+
   // --- App State ---
   let lastCompareData = null;
+  let historyPage = 1;
+  const historyLimit = 10;
 
   // --- Helpers ---
 
@@ -253,10 +267,158 @@
     }
   }
 
+  // --- Comparison History Helpers ---
+
+  /** Load comparison history and update the sidebar list. */
+  async function loadHistory() {
+    try {
+      const res = await fetch(`/api/history?page=${historyPage}&limit=${historyLimit}`);
+      if (!res.ok) return;
+
+      const data = await res.json();
+      renderHistoryList(data.comparisons, data.total);
+    } catch (err) {
+      console.error('Failed to load history:', err);
+    }
+  }
+
+  /** Render history items list in the sidebar. */
+  function renderHistoryList(comparisons, total) {
+    historyList.innerHTML = '';
+    
+    if (!comparisons || comparisons.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'history-empty';
+      empty.textContent = 'No past runs found';
+      historyList.appendChild(empty);
+      historyPagination.style.display = 'none';
+      return;
+    }
+
+    comparisons.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'history-item';
+      if (lastCompareData && lastCompareData.id === item.id) {
+        card.classList.add('active');
+      }
+
+      // Format time
+      const date = new Date(item.timestamp);
+      const timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      // Compute total cost for header/meta
+      let costVal = item.result_a.estimated_cost + item.result_b.estimated_cost;
+      if (item.variance_a && item.variance_b) {
+        costVal = item.variance_a.total_cost + item.variance_b.total_cost;
+      }
+
+      card.innerHTML = `
+        <div class="history-item-header">
+          <span class="history-item-time">${timeStr}</span>
+          <span class="history-item-model">${escapeHtml(item.model)}</span>
+        </div>
+        <div class="history-item-prompts">
+          <span class="val"><span class="label">A:</span>${escapeHtml(item.prompt_a)}</span>
+          <span class="val"><span class="label">B:</span>${escapeHtml(item.prompt_b)}</span>
+          <span class="val"><span class="label">In:</span>${escapeHtml(item.test_input)}</span>
+        </div>
+        <div class="history-item-meta">
+          <div class="history-item-meta-left">
+            <span>runs: ${item.runs}</span>
+            ${item.judge_verdict ? '<span style="color:#a78bfa;">judge: ✓</span>' : ''}
+          </div>
+          <span class="history-item-cost">$${costVal.toFixed(4)}</span>
+        </div>
+      `;
+
+      card.addEventListener('click', () => {
+        // Highlight active card
+        document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
+        card.classList.add('active');
+
+        // Populate fields
+        document.getElementById('prompt-a').value = item.prompt_a;
+        document.getElementById('prompt-b').value = item.prompt_b;
+        document.getElementById('test-input').value = item.test_input;
+        runsInput.value = item.runs;
+        sysInstructionToggle.checked = item.use_system_instruction;
+        enableJudgeToggle.checked = !!item.judge_verdict;
+
+        // Display saved results instantly
+        lastCompareData = item;
+        populateRunDropdowns(item.runs);
+        updateResultsDisplay();
+        resultsSection.classList.add('visible');
+
+        // Close sidebar on mobile/narrow viewports
+        if (window.innerWidth <= 768) {
+          closeHistorySidebar();
+        }
+      });
+
+      historyList.appendChild(card);
+    });
+
+    // Update pagination controls
+    const maxPages = Math.ceil(total / historyLimit) || 1;
+    historyPageIndicator.textContent = `${historyPage} / ${maxPages}`;
+    btnHistoryPrev.disabled = historyPage <= 1;
+    btnHistoryNext.disabled = historyPage >= maxPages;
+    historyPagination.style.display = 'flex';
+  }
+
+  function openHistorySidebar() {
+    historySidebar.classList.add('open');
+    sidebarOverlay.classList.add('active');
+    loadHistory();
+  }
+
+  function closeHistorySidebar() {
+    historySidebar.classList.remove('open');
+    sidebarOverlay.classList.remove('active');
+  }
+
   // --- Event Listeners ---
   toggleDiff.addEventListener('change', updateResultsDisplay);
   selectRunA.addEventListener('change', updateResultsDisplay);
   selectRunB.addEventListener('change', updateResultsDisplay);
+
+  // History panel handlers
+  btnToggleHistory.addEventListener('click', openHistorySidebar);
+  btnCloseHistory.addEventListener('click', closeHistorySidebar);
+  sidebarOverlay.addEventListener('click', closeHistorySidebar);
+
+  btnNewCompare.addEventListener('click', () => {
+    // Clear forms and reset defaults
+    form.reset();
+    document.getElementById('prompt-a').value = '';
+    document.getElementById('prompt-b').value = '';
+    document.getElementById('test-input').value = '';
+    runsInput.value = 1;
+    sysInstructionToggle.checked = true;
+    enableJudgeToggle.checked = false;
+    toggleDiff.checked = false;
+
+    // Clear active comparison state
+    lastCompareData = null;
+    document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
+
+    // Hide results section and close sidebar
+    resultsSection.classList.remove('visible');
+    closeHistorySidebar();
+  });
+
+  btnHistoryPrev.addEventListener('click', () => {
+    if (historyPage > 1) {
+      historyPage--;
+      loadHistory();
+    }
+  });
+
+  btnHistoryNext.addEventListener('click', () => {
+    historyPage++;
+    loadHistory();
+  });
 
   // --- Form submit ---
   form.addEventListener('submit', async function (e) {
@@ -308,6 +470,11 @@
       // Trigger initial results display
       updateResultsDisplay();
       resultsSection.classList.add('visible');
+
+      // Refresh history sidebar list if it is currently open
+      if (historySidebar.classList.contains('open')) {
+        loadHistory();
+      }
 
     } catch (err) {
       showError('Network error — could not reach the server. Is it running?');

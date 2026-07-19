@@ -8,11 +8,45 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Collapsible History Sidebar -->
+  <aside class="history-sidebar" id="history-sidebar">
+    <div class="history-sidebar-header">
+      <h3>History</h3>
+      <button id="btn-close-history" class="btn-close" aria-label="Close history">&times;</button>
+    </div>
+    <div class="history-new-compare-container">
+      <button id="btn-new-compare" class="btn-new-compare">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="margin-right: 4px; vertical-align: middle;">
+          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+        </svg>
+        New Comparison
+      </button>
+    </div>
+    <div class="history-list" id="history-list">
+      <div class="history-empty">No past runs found</div>
+    </div>
+    <div class="history-pagination" id="history-pagination" style="display: none;">
+      <button id="btn-history-prev" class="btn-history-nav" disabled>&larr;</button>
+      <span id="history-page-indicator">1 / 1</span>
+      <button id="btn-history-next" class="btn-history-nav" disabled>&rarr;</button>
+    </div>
+  </aside>
+  <!-- Sidebar overlay -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
   <div class="container">
 
     <!-- Header -->
     <header class="header">
-      <h1>Prompt A/B Diff Tester</h1>
+      <div class="header-main">
+        <h1>Prompt A/B Diff Tester</h1>
+        <button id="btn-toggle-history" class="btn-history-toggle" aria-label="Toggle comparison history">
+          <svg class="history-icon" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+          </svg>
+          History
+        </button>
+      </div>
       <p>Compare two prompts against the same input — see both outputs side by side.</p>
     </header>
 

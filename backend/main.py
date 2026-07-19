@@ -6,13 +6,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from gemini_client import _create_client, generate, generate_judge
 from models import CompareRequest, CompareResponse, ErrorResponse, ResultItem, VarianceSummary, JudgeVerdict
+from db import init_db, save_comparison, get_history
 
 # ---------------------------------------------------------------------------
 # Config
@@ -32,8 +33,9 @@ gemini_client = None  # will be set on startup
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialise the Gemini client once on startup."""
+    """Initialise the Gemini client and SQLite DB once on startup."""
     global gemini_client
+    init_db()  # Initialize SQLite schema and folder automatically
     if not GOOGLE_API_KEY:
         print(
             "⚠️  GOOGLE_API_KEY is not set. "
@@ -87,7 +89,7 @@ async def health():
     response_model=CompareResponse,
     responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
 )
-async def compare(req: CompareRequest):
+async def compare(req: CompareRequest, background_tasks: BackgroundTasks):
     """Run the same input against two prompts and return both results."""
 
     if gemini_client is None:
@@ -175,7 +177,18 @@ async def compare(req: CompareRequest):
                 reasoning=f"LLM Judge call failed: {judge_exc}"
             )
 
+    background_tasks.add_task(save_comparison, req.model_dump(), response.model_dump())
     return response
+
+
+@app.get("/api/history")
+async def history(page: int = 1, limit: int = 20):
+    """Retrieve comparisons history, paginated."""
+    if page < 1:
+        page = 1
+    if limit < 1 or limit > 100:
+        limit = 20
+    return await get_history(page, limit)
 
 
 # ---------------------------------------------------------------------------
