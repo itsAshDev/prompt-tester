@@ -12,8 +12,8 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from gemini_client import _create_client, generate, generate_judge
-from models import CompareRequest, CompareResponse, ErrorResponse, ResultItem, VarianceSummary, JudgeVerdict
-from db import init_db, save_comparison, get_history
+from models import CompareRequest, CompareResponse, ErrorResponse, ResultItem, VarianceSummary, JudgeVerdict, PromptSaveRequest
+from db import init_db, save_comparison, get_history, save_prompt, list_prompts, get_prompt_version
 
 # ---------------------------------------------------------------------------
 # Config
@@ -189,6 +189,34 @@ async def history(page: int = 1, limit: int = 20):
     if limit < 1 or limit > 100:
         limit = 20
     return await get_history(page, limit)
+
+
+@app.post("/api/prompts")
+async def create_prompt(req: PromptSaveRequest):
+    """Save a prompt template version."""
+    try:
+        name = req.name.strip()
+        if not name:
+            return JSONResponse(status_code=400, content={"error": "Prompt name cannot be empty."})
+        result = await save_prompt(name, req.text)
+        return result
+    except Exception as exc:
+        return JSONResponse(status_code=500, content={"error": str(exc)})
+
+
+@app.get("/api/prompts")
+async def get_prompts():
+    """List all saved prompts (names and versions)."""
+    return await list_prompts()
+
+
+@app.get("/api/prompts/{name}/{version}")
+async def get_prompt_by_version(name: str, version: int):
+    """Get a specific version of a prompt."""
+    result = await get_prompt_version(name, version)
+    if not result:
+        return JSONResponse(status_code=404, content={"error": f"Prompt '{name}' (version {version}) not found."})
+    return result
 
 
 # ---------------------------------------------------------------------------

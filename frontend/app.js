@@ -1,6 +1,6 @@
 /**
  * Prompt A/B Diff Tester — Frontend logic
- * Handles form submission, API calls, result rendering, error states, and comparison history.
+ * Handles form submission, API calls, result rendering, error states, comparison history, and prompt registry.
  */
 
 (function () {
@@ -44,10 +44,27 @@
   const btnHistoryNext = document.getElementById('btn-history-next');
   const historyPageIndicator = document.getElementById('history-page-indicator');
 
+  // Prompt Version Registry DOM refs
+  const loadPromptA = document.getElementById('load-prompt-a');
+  const loadPromptB = document.getElementById('load-prompt-b');
+  const versionPromptA = document.getElementById('version-prompt-a');
+  const versionPromptB = document.getElementById('version-prompt-b');
+  const btnSaveA = document.getElementById('btn-save-a');
+  const btnSaveB = document.getElementById('btn-save-b');
+  
+  const savePromptModal = document.getElementById('save-prompt-modal');
+  const btnCloseSaveModal = document.getElementById('btn-close-save-modal');
+  const btnCancelSavePrompt = document.getElementById('btn-cancel-save-prompt');
+  const btnConfirmSavePrompt = document.getElementById('btn-confirm-save-prompt');
+  const savePromptNameInput = document.getElementById('save-prompt-name');
+
   // --- App State ---
   let lastCompareData = null;
   let historyPage = 1;
   const historyLimit = 10;
+  
+  let activeSaveTarget = null; // 'A' or 'B'
+  let promptsRegistry = [];   // cached prompt names + versions list
 
   // --- Helpers ---
 
@@ -378,6 +395,163 @@
     sidebarOverlay.classList.remove('active');
   }
 
+  // --- Prompt Version Registry Helpers ---
+
+  /** Load prompt registry from API and populate Load dropdowns. */
+  async function loadPromptRegistry() {
+    try {
+      const res = await fetch('/api/prompts');
+      if (!res.ok) return;
+
+      promptsRegistry = await res.json();
+      populatePromptLoadDropdowns();
+    } catch (err) {
+      console.error('Failed to load prompts registry:', err);
+    }
+  }
+
+  /** Populate the Prompt A & B template select dropdowns with unique prompt names. */
+  function populatePromptLoadDropdowns() {
+    const valA = loadPromptA.value;
+    const valB = loadPromptB.value;
+
+    loadPromptA.innerHTML = '<option value="">Load...</option>';
+    loadPromptB.innerHTML = '<option value="">Load...</option>';
+
+    // Get unique prompt names from registry (sorted ascending)
+    const uniqueNames = Array.from(new Set(promptsRegistry.map(item => item.name))).sort();
+
+    uniqueNames.forEach(name => {
+      const optA = document.createElement('option');
+      optA.value = name;
+      optA.textContent = name;
+      loadPromptA.appendChild(optA);
+
+      const optB = document.createElement('option');
+      optB.value = name;
+      optB.textContent = name;
+      loadPromptB.appendChild(optB);
+    });
+
+    // Restore previous selection if still available
+    if (uniqueNames.includes(valA)) loadPromptA.value = valA;
+    if (uniqueNames.includes(valB)) loadPromptB.value = valB;
+  }
+
+  /** Populate version selector and load corresponding prompt content. */
+  async function handleLoadSelectChange(loadSelect, versionSelect, textareaId) {
+    const name = loadSelect.value;
+    const textarea = document.getElementById(textareaId);
+
+    if (!name) {
+      versionSelect.style.display = 'none';
+      versionSelect.innerHTML = '';
+      return;
+    }
+
+    // Filter versions for this prompt name
+    const versions = promptsRegistry
+      .filter(item => item.name === name)
+      .sort((a, b) => b.version - a.version); // newest version first
+
+    versionSelect.innerHTML = '';
+    versions.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.version;
+      opt.textContent = `v${item.version}`;
+      versionSelect.appendChild(opt);
+    });
+
+    versionSelect.style.display = 'inline-block';
+    
+    // Load latest version automatically
+    if (versions.length > 0) {
+      versionSelect.value = versions[0].version;
+      await fetchAndApplyPromptVersion(name, versions[0].version, textarea);
+    }
+  }
+
+  /** Fetch a specific version's full text and update the textarea. */
+  async function fetchAndApplyPromptVersion(name, version, textarea) {
+    try {
+      const urlName = encodeURIComponent(name);
+      const res = await fetch(`/api/prompts/${urlName}/${version}`);
+      if (!res.ok) return;
+
+      const data = await res.json();
+      textarea.value = data.text;
+    } catch (err) {
+      console.error(`Failed to load prompt version ${version} of ${name}:`, err);
+    }
+  }
+
+  /** Open naming modal dialog to save a prompt. */
+  function openSavePromptModal(target) {
+    const textarea = document.getElementById(target === 'A' ? 'prompt-a' : 'prompt-b');
+    const text = textarea.value.trim();
+
+    if (!text) {
+      alert('Please write some prompt text first before saving!');
+      return;
+    }
+
+    activeSaveTarget = target;
+    savePromptNameInput.value = '';
+    
+    // Pre-fill input if a template is already loaded
+    const loadSelect = target === 'A' ? loadPromptA : loadPromptB;
+    if (loadSelect.value) {
+      savePromptNameInput.value = loadSelect.value;
+    }
+
+    savePromptModal.style.display = 'flex';
+    savePromptNameInput.focus();
+  }
+
+  function closeSavePromptModal() {
+    savePromptModal.style.display = 'none';
+    activeSaveTarget = null;
+  }
+
+  /** Confirm save action and POST to backend. */
+  async function confirmSavePrompt() {
+    const name = savePromptNameInput.value.trim();
+    if (!name) {
+      alert('Please enter a template name.');
+      return;
+    }
+
+    const textarea = document.getElementById(activeSaveTarget === 'A' ? 'prompt-a' : 'prompt-b');
+    const text = textarea.value;
+
+    try {
+      const res = await fetch('/api/prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, text })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(`Save failed: ${data.error || 'Unknown error'}`);
+        return;
+      }
+
+      // Reload registry and select the newly saved template
+      await loadPromptRegistry();
+      
+      const loadSelect = activeSaveTarget === 'A' ? loadPromptA : loadPromptB;
+      const versionSelect = activeSaveTarget === 'A' ? versionPromptA : versionPromptB;
+      
+      loadSelect.value = name;
+      await handleLoadSelectChange(loadSelect, versionSelect, activeSaveTarget === 'A' ? 'prompt-a' : 'prompt-b');
+
+      closeSavePromptModal();
+    } catch (err) {
+      alert('Network error — failed to save prompt template.');
+    }
+  }
+
   // --- Event Listeners ---
   toggleDiff.addEventListener('change', updateResultsDisplay);
   selectRunA.addEventListener('change', updateResultsDisplay);
@@ -403,6 +577,12 @@
     lastCompareData = null;
     document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
 
+    // Reset prompt registry selects
+    loadPromptA.value = '';
+    loadPromptB.value = '';
+    versionPromptA.style.display = 'none';
+    versionPromptB.style.display = 'none';
+
     // Hide results section and close sidebar
     resultsSection.classList.remove('visible');
     closeHistorySidebar();
@@ -419,6 +599,39 @@
     historyPage++;
     loadHistory();
   });
+
+  // Prompt Registry UI events
+  btnSaveA.addEventListener('click', () => openSavePromptModal('A'));
+  btnSaveB.addEventListener('click', () => openSavePromptModal('B'));
+  
+  loadPromptA.addEventListener('change', () => handleLoadSelectChange(loadPromptA, versionPromptA, 'prompt-a'));
+  loadPromptB.addEventListener('change', () => handleLoadSelectChange(loadPromptB, versionPromptB, 'prompt-b'));
+  
+  versionPromptA.addEventListener('change', () => {
+    fetchAndApplyPromptVersion(loadPromptA.value, versionPromptA.value, document.getElementById('prompt-a'));
+  });
+  versionPromptB.addEventListener('change', () => {
+    fetchAndApplyPromptVersion(loadPromptB.value, versionPromptB.value, document.getElementById('prompt-b'));
+  });
+
+  // Modal event bindings
+  btnCloseSaveModal.addEventListener('click', closeSavePromptModal);
+  btnCancelSavePrompt.addEventListener('click', closeSavePromptModal);
+  btnConfirmSavePrompt.addEventListener('click', confirmSavePrompt);
+  
+  savePromptModal.addEventListener('click', (e) => {
+    if (e.target === savePromptModal) closeSavePromptModal();
+  });
+
+  savePromptNameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      confirmSavePrompt();
+    }
+  });
+
+  // --- Initialise ---
+  loadPromptRegistry();
 
   // --- Form submit ---
   form.addEventListener('submit', async function (e) {

@@ -44,6 +44,19 @@ def init_db():
                 judge_verdict TEXT           -- JSON string of JudgeVerdict or NULL
             )
         """)
+
+        # Create prompts registry table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS prompts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_prompts_name_version ON prompts (name, version)")
+
         conn.commit()
         conn.close()
         logger.info("✅ Database initialized successfully at %s", db_file.resolve())
@@ -148,3 +161,89 @@ def _get_history_sync(page: int, limit: int) -> dict:
 async def get_history(page: int, limit: int) -> dict:
     """Retrieve comparisons history asynchronously via thread pool."""
     return await asyncio.to_thread(_get_history_sync, page, limit)
+
+
+def _save_prompt_sync(name: str, text: str) -> dict:
+    """Synchronous prompt save run in threadpool."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        # Determine the next version number
+        cursor.execute("SELECT MAX(version) FROM prompts WHERE name = ?", (name,))
+        row = cursor.fetchone()
+        max_ver = row[0] if row and row[0] is not None else 0
+        new_ver = max_ver + 1
+
+        created_at = datetime.now(timezone.utc).isoformat()
+        cursor.execute("""
+            INSERT INTO prompts (name, version, text, created_at)
+            VALUES (?, ?, ?, ?)
+        """, (name, new_ver, text, created_at))
+        conn.commit()
+        logger.info("💾 Prompt saved: name=%s, version=%d", name, new_ver)
+        return {
+            "name": name,
+            "version": new_ver,
+            "text": text,
+            "created_at": created_at
+        }
+    except Exception as e:
+        logger.error("❌ Failed to save prompt: %s", e)
+        raise e
+    finally:
+        conn.close()
+
+
+async def save_prompt(name: str, text: str) -> dict:
+    """Save a named prompt version asynchronously via thread pool."""
+    return await asyncio.to_thread(_save_prompt_sync, name, text)
+
+
+def _list_prompts_sync() -> list[dict]:
+    """Synchronous prompts list retrieval run in threadpool."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT id, name, version, SUBSTR(text, 1, 60) as preview, created_at
+            FROM prompts
+            ORDER BY name ASC, version DESC
+        """)
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+    except Exception as e:
+        logger.error("❌ Failed to list prompts: %s", e)
+        return []
+    finally:
+        conn.close()
+
+
+async def list_prompts() -> list[dict]:
+    """List all prompt names and versions asynchronously via thread pool."""
+    return await asyncio.to_thread(_list_prompts_sync)
+
+
+def _get_prompt_version_sync(name: str, version: int) -> dict:
+    """Synchronous prompt version query run in threadpool."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT id, name, version, text, created_at
+            FROM prompts
+            WHERE name = ? AND version = ?
+        """, (name, version))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error("❌ Failed to get prompt version: %s", e)
+        return None
+    finally:
+        conn.close()
+
+
+async def get_prompt_version(name: str, version: int) -> dict:
+    """Get full text for a specific prompt version asynchronously via thread pool."""
+    return await asyncio.to_thread(_get_prompt_version_sync, name, version)

@@ -57,7 +57,16 @@
         <div class="form-grid">
           <!-- Prompt A -->
           <div class="form-group">
-            <label for="prompt-a">Prompt A</label>
+            <div class="prompt-header-toolbar">
+              <label for="prompt-a">Prompt A</label>
+              <div class="prompt-actions">
+                <select id="load-prompt-a" class="select-prompt-load" aria-label="Load saved Prompt A">
+                  <option value="">Load...</option>
+                </select>
+                <select id="version-prompt-a" class="select-prompt-version" style="display: none;" aria-label="Version for Prompt A"></select>
+                <button type="button" class="btn-prompt-save" id="btn-save-a">Save</button>
+              </div>
+            </div>
             <textarea
               id="prompt-a"
               name="prompt_a"
@@ -68,7 +77,16 @@
 
           <!-- Prompt B -->
           <div class="form-group">
-            <label for="prompt-b">Prompt B</label>
+            <div class="prompt-header-toolbar">
+              <label for="prompt-b">Prompt B</label>
+              <div class="prompt-actions">
+                <select id="load-prompt-b" class="select-prompt-load" aria-label="Load saved Prompt B">
+                  <option value="">Load...</option>
+                </select>
+                <select id="version-prompt-b" class="select-prompt-version" style="display: none;" aria-label="Version for Prompt B"></select>
+                <button type="button" class="btn-prompt-save" id="btn-save-b">Save</button>
+              </div>
+            </div>
             <textarea
               id="prompt-b"
               name="prompt_b"
@@ -168,6 +186,27 @@
       </div>
     </section>
 
+  </div>
+
+  <!-- Save Prompt Modal -->
+  <div class="modal-overlay" id="save-prompt-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Save Prompt Template</h3>
+        <button class="btn-close-modal" id="btn-close-save-modal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Enter a template name to register this prompt in the version registry. If you save under an existing name, it will automatically increment the version number.</p>
+        <div class="form-group" style="margin-top: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem;">
+          <label for="save-prompt-name" style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Template Name</label>
+          <input type="text" id="save-prompt-name" placeholder="e.g. Concise Storyteller" style="padding: 0.6rem 0.75rem; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-primary); outline: none; transition: border-color 0.2s ease;" />
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
+        <button type="button" class="btn-secondary" id="btn-cancel-save-prompt" style="padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border-subtle); background: transparent; color: var(--text-primary); cursor: pointer; transition: background 0.2s ease;">Cancel</button>
+        <button type="button" class="btn-primary" id="btn-confirm-save-prompt" style="padding: 0.5rem 1rem; border-radius: 6px; border: none; background: var(--primary); color: #ffffff; cursor: pointer; font-weight: 600; transition: background 0.2s ease; box-shadow: 0 4px 10px rgba(167, 139, 250, 0.2);">Save Version</button>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>

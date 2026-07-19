@@ -77,3 +77,10 @@ class ErrorResponse(BaseModel):
 
     error: str
 
+
+class PromptSaveRequest(BaseModel):
+    """Request body for POST /api/prompts."""
+
+    name: str = Field(..., min_length=1, max_length=100, description="Name of the prompt template")
+    text: str = Field(..., min_length=1, description="Prompt template text content")
+
